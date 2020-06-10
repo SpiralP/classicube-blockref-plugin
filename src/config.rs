@@ -7,7 +7,7 @@ use rand::prelude::*;
 use std::{
     collections::HashMap,
     fs::File,
-    io::{self, prelude::*, BufReader, BufWriter, Write},
+    io::{self, prelude::*, BufReader, Write},
     os::raw::c_int,
     path::{Path, PathBuf},
 };
@@ -74,13 +74,6 @@ impl Config {
         }
 
         Ok(variations)
-    }
-
-    fn save_to_file(file: File) -> Result<()> {
-        let writer = BufWriter::new(file);
-        //
-
-        Ok(())
     }
 
     pub fn choose_random_variation(
