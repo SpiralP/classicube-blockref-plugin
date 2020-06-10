@@ -10,4 +10,6 @@ crate-type = ["cdylib"]
 [dependencies]
 classicube-helpers = { git = "https://github.com/SpiralP/rust-classicube-helpers.git"}
 classicube-sys = { git = "https://github.com/SpiralP/rust-classicube-sys.git" }
+error-chain = "0.12.2"
 rand = "0.7.3"
+rand_chacha = "0.2.2"
