@@ -15,13 +15,14 @@ use std::{
 
 #[derive(Debug)]
 pub struct Config {
-    pub variations: HashMap<BlockID, Vec<BlockID>>,
+    // weighted variations
+    pub variation_groups: HashMap<BlockID, Vec<(BlockID, usize)>>,
     pub path: PathBuf,
 }
 
 impl Config {
     pub fn reload(&mut self) -> Result<()> {
-        self.variations = Self::load(&self.path)?.variations;
+        self.variation_groups = Self::load(&self.path)?.variation_groups;
 
         Ok(())
     }
@@ -31,7 +32,7 @@ impl Config {
 
         match File::open(&path) {
             Ok(file) => Ok(Self {
-                variations: Self::read_from_file(file)?,
+                variation_groups: Self::read_from_file(file)?,
                 path: path.to_path_buf(),
             }),
 
@@ -47,7 +48,7 @@ impl Config {
                         print(format!("created new file {:?}", path));
 
                         Ok(Self {
-                            variations: Default::default(),
+                            variation_groups: Default::default(),
                             path: path.to_path_buf(),
                         })
                     }
@@ -58,28 +59,30 @@ impl Config {
         }
     }
 
-    fn read_from_file(file: File) -> Result<HashMap<BlockID, Vec<BlockID>>> {
+    fn read_from_file(file: File) -> Result<HashMap<BlockID, Vec<(BlockID, usize)>>> {
         let reader = BufReader::new(file);
 
-        let mut variations = HashMap::new();
+        let mut variation_groups = HashMap::new();
         for line in reader.lines() {
             let line = line?;
             if line.starts_with('#') || line.trim().is_empty() {
                 continue;
             }
 
-            let mut args: Vec<BlockID> = line
-                .split_whitespace()
-                .map(|s| s.parse())
-                .collect::<std::result::Result<_, _>>()?;
+            let mut args = line.split_whitespace();
+            let target: BlockID = args.next().chain_err(|| "missing target")?.parse()?;
 
-            let target: BlockID = *args.get(0).chain_err(|| "missing target")?;
-            let vars: Vec<BlockID> = args.drain(..).skip(1).collect();
-
-            variations.insert(target, vars);
+            let mut weighted_variations = Vec::new();
+            for arg in args {
+                let mut split = arg.split(':');
+                let block = split.next().chain_err(|| "wtf")?.parse()?;
+                let weight = split.next().unwrap_or("1").parse()?;
+                weighted_variations.push((block, weight));
+            }
+            variation_groups.insert(target, weighted_variations);
         }
 
-        Ok(variations)
+        Ok(variation_groups)
     }
 
     pub fn choose_random_variation(
@@ -89,13 +92,20 @@ impl Config {
         z: c_int,
         block: BlockID,
     ) -> Option<BlockID> {
-        let variations = self.variations.get(&block)?;
+        let weighted_variations = self.variation_groups.get(&block)?;
 
-        Some(*variations.choose(&mut get_rng(&Seed {
+        let mut rng = get_rng(&Seed {
             x,
             y,
             z,
             volume: unsafe { World.Volume },
-        }))?)
+        });
+
+        let block = weighted_variations
+            .choose_weighted(&mut rng, |weighted| weighted.1)
+            .map(|a| a.0)
+            .ok()?;
+
+        Some(block)
     }
 }

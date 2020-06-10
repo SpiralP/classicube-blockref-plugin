@@ -80,11 +80,11 @@ fn load_config(notify: bool) {
 
         match Config::load(CONFIG_FILE_PATH) {
             Ok(config) => {
-                // println!("loaded {:#?}", config);
+                println!("loaded {:#?}", config);
                 if notify {
                     print(format!(
-                        "blockref loaded {} targets, use \"/client BlockRef\" for help",
-                        config.variations.len()
+                        "blockref loaded {} variation groups, use \"/client BlockRef\" for help",
+                        config.variation_groups.len()
                     ));
                 }
 

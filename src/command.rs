@@ -8,10 +8,11 @@ pub fn reload() {
         let option = &mut *cell.borrow_mut();
         let config = option.as_mut().chain_err(|| "no config loaded??")?;
         config.reload()?;
+        println!("reloaded {:#?}", config);
 
         print(format!(
-            "blockref reloaded {} targets",
-            config.variations.len()
+            "blockref reloaded {} variation groups",
+            config.variation_groups.len()
         ));
 
         Ok::<_, Error>(())
