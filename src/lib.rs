@@ -4,12 +4,16 @@ mod error;
 mod random;
 
 use self::config::Config;
-use classicube_helpers::{detour::static_detour, CellGetSet};
+use classicube_helpers::{detour::static_detour, tick::TickEventHandler, CellGetSet};
 use classicube_sys::{BlockID, Chat_Add, Game_ChangeBlock, IGameComponent, OwnedString};
+use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
 use std::{
     cell::{Cell, RefCell},
     os::raw::c_int,
+    path::Path,
     ptr,
+    sync::mpsc::channel,
+    time::Duration,
 };
 
 const CONFIG_FILE_PATH: &str = "plugins/blockref_variations.txt";
@@ -29,6 +33,14 @@ thread_local!(
 
 thread_local!(
     pub static ENABLED: Cell<bool> = Cell::new(false);
+);
+
+thread_local!(
+    static TICK_HANDLER: RefCell<Option<TickEventHandler>> = Default::default();
+);
+
+thread_local!(
+    static WATCHER: RefCell<Option<RecommendedWatcher>> = Default::default();
 );
 
 fn game_change_block_hook(x: c_int, y: c_int, z: c_int, mut block: BlockID) {
@@ -96,6 +108,56 @@ extern "C" fn init() {
             .unwrap();
         DETOUR.enable().unwrap();
     }
+
+    // Create a channel to receive the events.
+    let (tx, rx) = channel();
+
+    WATCHER.with(move |cell| {
+        let opt = &mut *cell.borrow_mut();
+
+        // Automatically select the best implementation for your platform.
+        // You can also access each implementation directly e.g. INotifyWatcher.
+        let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(1)).unwrap();
+
+        // Add a path to be watched. All files and directories at that path and
+        // below will be monitored for changes.
+        watcher
+            .watch(CONFIG_FILE_PATH, RecursiveMode::Recursive)
+            .unwrap();
+
+        *opt = Some(watcher);
+    });
+
+    TICK_HANDLER.with(move |cell| {
+        let opt = &mut *cell.borrow_mut();
+
+        let mut tick_handler = TickEventHandler::new();
+        tick_handler.on(move |_| {
+            for event in rx.try_iter() {
+                println!("{:#?}", event);
+
+                let maybe = match event {
+                    DebouncedEvent::Create(path) => Some(path),
+                    DebouncedEvent::Write(path) => Some(path),
+                    DebouncedEvent::Rename(_old, path) => Some(path),
+
+                    _ => None,
+                };
+
+                if let Some(path) = maybe {
+                    if let Ok(left) = path.canonicalize() {
+                        if let Ok(right) = Path::new(CONFIG_FILE_PATH).canonicalize() {
+                            if left == right {
+                                command::reload();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        *opt = Some(tick_handler);
+    });
 }
 
 extern "C" fn free() {

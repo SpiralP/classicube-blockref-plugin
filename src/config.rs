@@ -1,5 +1,6 @@
 use crate::{
     error::*,
+    print,
     random::{get_rng, Seed},
 };
 use classicube_sys::{BlockID, World};
@@ -26,23 +27,28 @@ impl Config {
     }
 
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref();
+
         match File::open(&path) {
             Ok(file) => Ok(Self {
                 variations: Self::read_from_file(file)?,
-                path: path.as_ref().to_path_buf(),
+                path: path.to_path_buf(),
             }),
 
             Err(e) => {
                 match e.kind() {
                     io::ErrorKind::NotFound => {
                         // create blank file with comment
+                        {
+                            let mut f = File::create(&path)?;
+                            writeln!(f, "# [target] [1] [2] [3]...")?;
+                        }
 
-                        let mut f = File::create(&path)?;
-                        writeln!(f, "# [target] [1] [2] [3]...")?;
+                        print(format!("created new file {:?}", path));
 
                         Ok(Self {
                             variations: Default::default(),
-                            path: path.as_ref().to_path_buf(),
+                            path: path.to_path_buf(),
                         })
                     }
 
