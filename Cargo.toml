@@ -14,3 +14,9 @@ error-chain = "0.12.2"
 notify = "4.0.15"
 rand = "0.7.3"
 rand_chacha = "0.2.2"
+
+
+
+# remove when 1.1.7 releases
+[patch."https://github.com/SpiralP/rust-classicube-sys.git"]
+classicube-sys = { git = "https://github.com/SpiralP/rust-classicube-sys//", branch = "next" }

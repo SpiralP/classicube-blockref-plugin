@@ -5,7 +5,9 @@ mod random;
 
 use self::config::Config;
 use classicube_helpers::{detour::static_detour, tick::TickEventHandler, CellGetSet};
-use classicube_sys::{BlockID, Chat_Add, Game_ChangeBlock, IGameComponent, OwnedString};
+use classicube_sys::{
+    BlockID, Chat_Add, Game_ChangeBlock, IGameComponent, Inventory_SelectedBlock, OwnedString,
+};
 use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
 use std::{
     cell::{Cell, RefCell},
@@ -36,6 +38,10 @@ thread_local!(
 );
 
 thread_local!(
+    pub static PAINT: Cell<bool> = Cell::new(false);
+);
+
+thread_local!(
     static TICK_HANDLER: RefCell<Option<TickEventHandler>> = Default::default();
 );
 
@@ -49,7 +55,13 @@ fn game_change_block_hook(x: c_int, y: c_int, z: c_int, mut block: BlockID) {
             let option = &mut *cell.borrow_mut();
             let config = option.as_ref()?;
 
-            Some(config.choose_random_variation(x, y, z, block)?)
+            let target = if PAINT.get() {
+                Inventory_SelectedBlock()
+            } else {
+                block
+            };
+
+            Some(config.choose_random_variation(x, y, z, target)?)
         });
 
         if let Some(block_override) = option_override {

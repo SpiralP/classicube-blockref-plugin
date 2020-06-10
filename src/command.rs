@@ -1,4 +1,4 @@
-use crate::{error::*, print, CONFIG, ENABLED};
+use crate::{error::*, print, CONFIG, ENABLED, PAINT};
 use classicube_helpers::CellGetSet;
 use classicube_sys::OwnedChatCommand;
 use std::{cell::Cell, os::raw::c_int, slice};
@@ -42,10 +42,28 @@ extern "C" fn c_chat_command_callback(args: *const classicube_sys::String, args_
             print("BlockRef enabled");
         }
 
+        ["toggle"] => {
+            ENABLED.set(!ENABLED.get());
+            print(format!(
+                "BlockRef {}",
+                if ENABLED.get() { "enabled" } else { "disabled" }
+            ));
+        }
+
+        ["paint"] => {
+            PAINT.set(!PAINT.get());
+            print(format!(
+                "BlockRef painting {}",
+                if PAINT.get() { "enabled" } else { "disabled" }
+            ));
+        }
+
         _ => {
             print("/client BlockRef reload");
             print("/client BlockRef disable");
             print("/client BlockRef enable");
+            print("/client BlockRef toggle");
+            print("/client BlockRef paint");
         }
     }
 }
