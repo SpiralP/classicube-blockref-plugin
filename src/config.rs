@@ -42,7 +42,8 @@ impl Config {
                         // create blank file with comment
                         {
                             let mut f = File::create(&path)?;
-                            writeln!(f, "# [target] [1] [2] [3]...")?;
+                            writeln!(f, "# [held block] [variation:weight]...")?;
+                            writeln!(f, "# weight defaults to 1 if not specified")?;
                         }
 
                         print(format!("created new file {:?}", path));

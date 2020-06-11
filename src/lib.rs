@@ -74,32 +74,8 @@ fn game_change_block_hook(x: c_int, y: c_int, z: c_int, mut block: BlockID) {
     }
 }
 
-fn load_config(notify: bool) {
-    CONFIG.with(|cell| {
-        let option = &mut *cell.borrow_mut();
-
-        match Config::load(CONFIG_FILE_PATH) {
-            Ok(config) => {
-                println!("loaded {:#?}", config);
-                if notify {
-                    print(format!(
-                        "blockref loaded {} variation groups, use \"/client BlockRef\" for help",
-                        config.variation_groups.len()
-                    ));
-                }
-
-                *option = Some(config);
-            }
-
-            Err(e) => {
-                print(format!("blockref error: {}", e));
-            }
-        }
-    });
-}
-
 extern "C" fn on_new_map_loaded() {
-    load_config(false);
+    command::reload();
 }
 
 pub fn print<S: Into<Vec<u8>>>(s: S) {
@@ -112,7 +88,25 @@ pub fn print<S: Into<Vec<u8>>>(s: S) {
 extern "C" fn init() {
     command::init();
 
-    load_config(true);
+    CONFIG.with(|cell| {
+        let option = &mut *cell.borrow_mut();
+
+        match Config::load(CONFIG_FILE_PATH) {
+            Ok(config) => {
+                println!("loaded {:#?}", config);
+                print(format!(
+                    "blockref loaded {} variation groups, use \"/client BlockRef\" for help",
+                    config.variation_groups.len()
+                ));
+
+                *option = Some(config);
+            }
+
+            Err(e) => {
+                print(format!("blockref error: {}", e));
+            }
+        }
+    });
 
     unsafe {
         DETOUR
@@ -125,7 +119,7 @@ extern "C" fn init() {
     let (tx, rx) = channel();
 
     WATCHER.with(move |cell| {
-        let opt = &mut *cell.borrow_mut();
+        let option = &mut *cell.borrow_mut();
 
         // Automatically select the best implementation for your platform.
         // You can also access each implementation directly e.g. INotifyWatcher.
@@ -137,11 +131,11 @@ extern "C" fn init() {
             .watch(CONFIG_FILE_PATH, RecursiveMode::Recursive)
             .unwrap();
 
-        *opt = Some(watcher);
+        *option = Some(watcher);
     });
 
     TICK_HANDLER.with(move |cell| {
-        let opt = &mut *cell.borrow_mut();
+        let option = &mut *cell.borrow_mut();
 
         let mut tick_handler = TickEventHandler::new();
         tick_handler.on(move |_| {
@@ -168,18 +162,28 @@ extern "C" fn init() {
             }
         });
 
-        *opt = Some(tick_handler);
+        *option = Some(tick_handler);
     });
 }
 
 extern "C" fn free() {
+    TICK_HANDLER.with(move |cell| {
+        let option = &mut *cell.borrow_mut();
+        drop(option.take());
+    });
+
+    WATCHER.with(move |cell| {
+        let option = &mut *cell.borrow_mut();
+        drop(option.take());
+    });
+
     unsafe {
         DETOUR.disable().unwrap();
     }
 
     CONFIG.with(|cell| {
         let option = &mut *cell.borrow_mut();
-        drop(option.take().unwrap());
+        drop(option.take());
     });
 
     command::free();
