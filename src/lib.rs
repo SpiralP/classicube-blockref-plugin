@@ -74,10 +74,6 @@ fn game_change_block_hook(x: c_int, y: c_int, z: c_int, mut block: BlockID) {
     }
 }
 
-extern "C" fn on_new_map_loaded() {
-    command::reload();
-}
-
 pub fn print<S: Into<Vec<u8>>>(s: S) {
     let owned_string = OwnedString::new(s);
     unsafe {
@@ -203,7 +199,7 @@ pub static mut Plugin_Component: IGameComponent = IGameComponent {
     // Called to update the component's state when the user begins loading a new map.
     OnNewMap: None,
     // Called to update the component's state when the user has finished loading a new map.
-    OnNewMapLoaded: Some(on_new_map_loaded),
+    OnNewMapLoaded: None,
     // Next component in linked list of components.
     next: ptr::null_mut(),
 };
